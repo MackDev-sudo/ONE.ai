@@ -1,14 +1,14 @@
-![banner](https://raw.githubusercontent.com/MackDev-sudo/ONE.ai/master/public/banner.png)
+<!-- ![banner](https://raw.githubusercontent.com/MackDev-sudo/ONE.ai/master/public/banner.png) -->
 
 # ONE.ai - Adaptive Reasoning & Intelligence Assistant
 A sophisticated AI-powered assistant built with Next.js and powered by multiple LLM providers including Groq, Gemini, OpenAI, and Claude. ONE.ai adapts to different modes of interaction, providing specialized assistance for productivity, wellness, learning, creative tasks, and even acts as your GenZ bestie!
 
-## 🎬 Project Showcase
+<!-- ## 🎬 Project Showcase
 
 | Preview             | Description        |
 |---------------------|--------------------|
 | [![YouTube Demo](https://raw.githubusercontent.com/MackDev-sudo/ONE.ai/master/public/youtube.jpg)](https://www.youtube.com/watch?v=2FW6IJeOkzI) | 🎬 **YouTube Demo**<br>Click the image to watch the full demo. |
-| ![Blog Post](https://raw.githubusercontent.com/MackDev-sudo/ONE.ai/master/public/cover-image.png) | 📝 **Blog Post**<br>Read the blog for in-depth explanation. |
+| ![Blog Post](https://raw.githubusercontent.com/MackDev-sudo/ONE.ai/master/public/cover-image.png) | 📝 **Blog Post**<br>Read the blog for in-depth explanation. | -->
 
 
 
@@ -349,11 +349,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Meet the Author
 
-<img  src="https://raw.githubusercontent.com/MackDev-sudo/ONE.ai/master/public/Author.jpg" alt="Author">
+<!-- <img  src="https://raw.githubusercontent.com/MackDev-sudo/ONE.ai/master/public/Author.jpg" alt="Author">
 
-<div align="center">
+<div align="center"> -->
 
-**Built with ❤️ by [Atanu Kumar Paul](https://github.com/MackDev-sudo) | [Mackdev Inc](https://mackdevinc.com)**
+**Built with ❤️ by [Atanu Kumar Paul](https://github.com/MackDev-sudo) | [Mackdev Inc](https://mackdevinc.vercel.app/)**
 
 *ONE.ai - Your Adaptive AI Companion for Every Need*
 
