@@ -250,6 +250,29 @@ export function useConversations(userId: string | undefined) {
     }
   }, []);
 
+  const clearAllConversations = useCallback(async () => {
+    if (!userId) {
+      console.log('No userId provided, cannot clear conversations');
+      return;
+    }
+
+    try {
+      const { error } = await supabaseRef.current
+        .from('conversations')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) {
+        if (handleError(error, 'Error clearing all conversations')) return;
+        throw error;
+      }
+
+      setConversations([]);
+    } catch (error) {
+      handleError(error, 'Error clearing all conversations');
+    }
+  }, [userId]);
+
   useEffect(() => {
     let channelName = `conversations-${userId || 'anonymous'}`;
     let mounted = true;
@@ -321,6 +344,7 @@ export function useConversations(userId: string | undefined) {
     error,
     createConversation,
     deleteConversation,
+    clearAllConversations,
     fetchConversations,
     fetchConversationMessages
   };

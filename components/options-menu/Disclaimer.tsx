@@ -70,6 +70,18 @@ export function Disclaimer({ open, onOpenChange, uiStyle = "modern" }: Disclaime
         "Avoid creating content that violates intellectual property rights",
         "Do not attempt to manipulate, hack, or abuse the system"
       ]
+    },
+    {
+      icon: Shield,
+      title: "Third-Party AI Ownership & Management",
+      items: [
+        "We do not claim any ownership rights or legal rights over third-party AI tools and models",
+        "All AI models are exclusively managed, developed, owned, and trained by their respective vendors",
+        "Third-party AI providers may change, update, or discontinue their services without prior notification",
+        "We hold no control, obligation, or liability over the performance of third-party AI models",
+        "Each AI provider operates under their own terms of service and privacy policies",
+        "Users acknowledge that AI model availability and functionality are subject to vendor discretion"
+      ]
     }
   ]
 
@@ -252,8 +264,8 @@ export function Disclaimer({ open, onOpenChange, uiStyle = "modern" }: Disclaime
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open('mailto:legal@mackdev.com', '_blank')}
-                  className={`${
+                  disabled
+                  className={`opacity-50 cursor-not-allowed ${
                     uiStyle === "pixel" ? "pixel-font border-2" : ""
                   }`}
                 >
@@ -265,8 +277,8 @@ export function Disclaimer({ open, onOpenChange, uiStyle = "modern" }: Disclaime
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open('https://github.com/MackDev-sudo', '_blank')}
-                  className={`${
+                  disabled
+                  className={`opacity-50 cursor-not-allowed ${
                     uiStyle === "pixel" ? "pixel-font border-2" : ""
                   }`}
                 >

@@ -62,11 +62,11 @@ import {
   MessageSquare,
   FileText,
   Eraser,
-  ThumbsUp,
-  ThumbsDown,
   Copy,
   Download,
   Share2,
+  Globe,
+  Paperclip,
 } from "lucide-react"
 import {
   Avatar,
@@ -98,7 +98,7 @@ import "../styles/globals.css"
 import { toast } from "sonner"
 
 type Mode = "general" | "productivity" | "wellness" | "learning" | "creative" | "bff"
-type Provider = "groq" | "gemini" | "openai" | "claude"
+type Provider = "auto" | "groq" | "gemini" | "openai" | "claude"
 type UIStyle = "modern" | "pixel"
 
 const MODES = {
@@ -183,6 +183,13 @@ const MODES = {
 }
 
 const PROVIDERS = {
+  auto: {
+    name: "Auto",
+    description: "Smart AI selection based on your question",
+    models: ["Dynamic selection"],
+    requiresApiKey: false,
+    color: "blue",
+  },
   groq: {
     name: "Groq",
     description: "Fast and efficient LLM",
@@ -246,7 +253,7 @@ interface User {
   };
 }
 
-// Add this function before the FuturisticRadhika component
+// Add this function before the ONE.ai component
 const getIpAddress = async () => {
   try {
     const response = await fetch('/api/ip');
@@ -294,7 +301,7 @@ const handleShareMessage = async (content: string) => {
 
 export default function ChatPage() {
   const [mode, setMode] = useState<Mode>("general")
-  const [provider, setProvider] = useState<Provider>("groq")
+  const [provider, setProvider] = useState<Provider>("auto")
   const [darkMode, setDarkMode] = useState(true)
   const [uiStyle, setUIStyle] = useState<UIStyle>("modern")
   const [error, setError] = useState<string | null>(null)
@@ -302,10 +309,10 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false)
-  const [selectedProvider, setSelectedProvider] = useState<Provider>("groq")
+  const [selectedProvider, setSelectedProvider] = useState<Provider>("auto")
   const [tempApiKey, setTempApiKey] = useState("")
   const [isProviderMenuOpen, setIsProviderMenuOpen] = useState(false)
-  const [authDialogOpen, setAuthDialogOpen] = useState(true);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false); // Start with false, will be set to true if no user
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userProfile, setUserProfile] = useState<{
     name: string;
@@ -317,9 +324,13 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true)
   const [systemIp, setSystemIp] = useState<string>('');
   const [textToSpeak, setTextToSpeak] = useState<string>("");
+  const [isFileUploading, setIsFileUploading] = useState(false);
+  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
+  const [isWebSearching, setIsWebSearching] = useState(false);
 
   const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>(undefined);
   const [showLandingPage, setShowLandingPage] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [aboutDialogOpen, setAboutDialogOpen] = useState(false);
   const [securityDialogOpen, setSecurityDialogOpen] = useState(false);
   const [disclaimerDialogOpen, setDisclaimerDialogOpen] = useState(false);
@@ -332,6 +343,7 @@ export default function ChatPage() {
     error: conversationsError,
     createConversation,
     deleteConversation,
+    clearAllConversations,
     fetchConversationMessages
   } = useConversations(user?.id);
 
@@ -349,6 +361,9 @@ export default function ChatPage() {
       setLoading(false)
       if (session?.user) {
         setAuthDialogOpen(false)
+      } else {
+        // No user session found, ensure auth dialog is open
+        setAuthDialogOpen(true)
       }
     })
 
@@ -365,6 +380,9 @@ export default function ChatPage() {
       setUser(session?.user ?? null)
       if (session?.user) {
         setAuthDialogOpen(false)
+      } else {
+        // No user session, ensure auth dialog is open  
+        setAuthDialogOpen(true)
       }
     })
 
@@ -744,8 +762,8 @@ export default function ChatPage() {
 
   const { messages: rawMessages, input, handleInputChange, handleSubmit: originalHandleSubmit, isLoading, setMessages, setInput } = useChat(chatConfig)
 
-  // Wrap handleSubmit to ensure user is authenticated
-  const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+  // Wrap handleSubmit to ensure user is authenticated and handle file uploads
+  const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     if (!user) {
@@ -755,13 +773,266 @@ export default function ChatPage() {
       return;
     }
     
-    if (!input.trim()) {
+    if (!input.trim() && uploadedFiles.length === 0) {
       return;
+    }
+
+    // Check if this is a web search query
+    const isWebSearchQuery = input.toLowerCase().includes('search web for:') || 
+                           input.toLowerCase().includes('web search:') || 
+                           (isWebSearchEnabled && input.trim().length > 0);
+
+    // Handle web search
+    if (isWebSearchQuery) {
+      let assistantMessage: any = null;
+      
+      try {
+        setIsWebSearching(true);
+        
+        // Extract search query
+        let searchQuery = input;
+        if (input.toLowerCase().includes('search web for:')) {
+          searchQuery = input.replace(/search web for:\s*/i, '').trim();
+        } else if (input.toLowerCase().includes('web search:')) {
+          searchQuery = input.replace(/web search:\s*/i, '').trim();
+        }
+        
+        console.log('🔍 Starting web search for:', searchQuery);
+        
+        // Add user message to chat immediately
+        const userContent = `🔍 Web Search: ${searchQuery}`;
+        const newUserMessage = {
+          id: Date.now().toString(),
+          role: 'user' as const,
+          content: userContent
+        };
+        setMessages(prev => [...prev, newUserMessage]);
+        
+        // Start assistant message immediately to show thinking state
+        assistantMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant' as const,
+          content: ''
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+        
+        // Clear input
+        setInput('');
+        setIsWebSearchEnabled(false); // Reset web search toggle
+        
+        // Make web search request
+        const response = await fetch('/api/web-search', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            query: searchQuery,
+            provider: provider 
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Web search failed');
+        }
+        
+        const searchData = await response.json();
+        console.log('🔍 Web search completed:', searchData);
+        
+        if (searchData.success) {
+          // Update assistant message with search results
+          setMessages(prev => prev.map(msg => 
+            msg.id === assistantMessage.id 
+              ? { ...msg, content: searchData.summary }
+              : msg
+          ));
+          
+          // Show success toast
+          toast.success(`Found ${searchData.sourcesAnalyzed} sources for "${searchQuery}"`);
+        } else {
+          throw new Error(searchData.message || 'Web search failed');
+        }
+        
+        return;
+        
+      } catch (error) {
+        console.error('Web search error:', error);
+        setError(`Web search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        
+        // Update assistant message with error if it exists
+        if (assistantMessage) {
+          setMessages(prev => prev.map(msg => 
+            msg.id === assistantMessage.id
+              ? { ...msg, content: `I'm sorry, but I encountered an error while searching the web: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.` }
+              : msg
+          ));
+        }
+        
+        toast.error('Web search failed. Please try again.');
+        
+      } finally {
+        setIsWebSearching(false);
+      }
+    }
+
+    // If there are uploaded files, handle them specially
+    if (uploadedFiles.length > 0) {
+      try {
+        // Set file uploading state
+        setIsFileUploading(true);
+        
+        // Add user message to chat immediately
+        const userContent = input + (uploadedFiles.length > 0 ? ` [${uploadedFiles.length} file(s) attached]` : '');
+        const newUserMessage = {
+          id: Date.now().toString(),
+          role: 'user' as const,
+          content: userContent
+        };
+        setMessages(prev => [...prev, newUserMessage]);
+        console.log('� Added user message with files');
+
+        // Start assistant message immediately to show thinking state
+        const assistantMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant' as const,
+          content: ''
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+        console.log('🤖 Added empty assistant message for thinking animation');
+
+        // Clear input and files immediately
+        const currentInput = input;
+        const currentFiles = [...uploadedFiles];
+        setUploadedFiles([]);
+        setInput('');
+        
+        // Hide file preview
+        const previewArea = document.getElementById('file-preview-area');
+        if (previewArea) {
+          previewArea.classList.add('hidden');
+        }
+
+        // Now prepare and send the request
+        const formData = new FormData();
+        formData.append('message', currentInput);
+        formData.append('mode', mode);
+        formData.append('provider', provider);
+        formData.append('userId', user.id);
+        
+        // Add files to form data
+        currentFiles.forEach((file, index) => {
+          formData.append(`file_${index}`, file);
+        });
+        formData.append('fileCount', currentFiles.length.toString());
+
+        // Send to file upload endpoint
+        console.log('📁 Uploading files to /api/chat-with-files...');
+        const response = await fetch('/api/chat-with-files', {
+          method: 'POST',
+          body: formData,
+        });
+
+        console.log('� File upload response status:', response.status);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ File upload failed:', errorText);
+          throw new Error(`Failed to upload files: ${response.status} ${errorText}`);
+        }
+
+        // Handle the streaming response from file upload
+        console.log('📖 Reading streaming response...');
+        const reader = response.body?.getReader();
+        if (reader) {
+
+          // Read the stream and accumulate content
+          let fullContent = '';
+          const decoder = new TextDecoder();
+          
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                console.log('✅ Stream reading completed. Final content length:', fullContent.length);
+                break;
+              }
+              
+              const chunk = decoder.decode(value, { stream: true });
+              console.log('📦 Received chunk:', chunk.substring(0, 100), '...');
+              const lines = chunk.split('\n');
+              
+              for (const line of lines) {
+                if (line.trim() === '') continue;
+                
+                let data = line;
+                if (line.startsWith('data: ')) {
+                  data = line.slice(6);
+                }
+                
+                if (data === '[DONE]') {
+                  console.log('🏁 Received [DONE] signal');
+                  break;
+                }
+                
+                // Handle different chunk formats
+                let contentToAdd = '';
+                try {
+                  // Try to parse as JSON first
+                  const parsed = JSON.parse(data);
+                  if (parsed.content) {
+                    contentToAdd = parsed.content;
+                  }
+                } catch (e) {
+                  // If not JSON, try to extract content from text format
+                  const match = data.match(/^\d+:"(.*)"$/);
+                  if (match && match[1]) {
+                    contentToAdd = match[1];
+                  } else if (data && !data.startsWith('f:') && !data.startsWith('e:') && !data.startsWith('d:')) {
+                    // Direct text content
+                    contentToAdd = data;
+                  }
+                }
+                
+                if (contentToAdd) {
+                  // Properly unescape newlines and other escaped characters
+                  contentToAdd = contentToAdd.replace(/\\n/g, '\n')
+                                             .replace(/\\t/g, '\t')
+                                             .replace(/\\r/g, '\r')
+                                             .replace(/\\\\/g, '\\')
+                                             .replace(/\\"/g, '"');
+                  
+                  fullContent += contentToAdd;
+                  console.log('📝 Updated content length:', fullContent.length);
+                  
+                  // Update the assistant message with accumulated content
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessage.id 
+                      ? { ...msg, content: fullContent }
+                      : msg
+                  ));
+                }
+              }
+            }
+          } catch (streamError) {
+            console.error('❌ Stream reading error:', streamError);
+            setError('Error reading AI response stream');
+          } finally {
+            setIsFileUploading(false);
+          }
+        }
+
+        return;
+      } catch (error) {
+        console.error('File upload error:', error);
+        setError('Failed to upload files. Please try again.');
+        setIsFileUploading(false);
+        return;
+      }
     }
     
     console.log('Submitting message with user:', { userId: user.id, userEmail: user.email });
     originalHandleSubmit(e);
-  }, [user, input, originalHandleSubmit]);
+  }, [user, input, originalHandleSubmit, uploadedFiles, mode, provider, setMessages]);
 
   // Filter thinking content from messages
   const messages = useMemo(() => {
@@ -799,7 +1070,7 @@ export default function ChatPage() {
   // Load API keys from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const savedApiKeys = localStorage.getItem("radhika-api-keys")
+      const savedApiKeys = localStorage.getItem("oneai-api-keys")
       if (savedApiKeys) {
         try {
           const parsedKeys = JSON.parse(savedApiKeys)
@@ -847,6 +1118,46 @@ export default function ChatPage() {
     // Clear any input text
     setInput("")
   }, [setMessages, clearSpeechError, stopSpeaking, setInput])
+
+  const handleClearAllConversations = useCallback(async () => {
+    if (!user?.id) {
+      console.log('No user logged in, cannot clear conversations');
+      return;
+    }
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      'Are you sure you want to clear all your conversations? This action cannot be undone.'
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      // Clear all conversations from the database
+      await clearAllConversations();
+      
+      // Clear the current chat state
+      setMessages([])
+      messagesByModeRef.current[currentModeRef.current] = []
+      setError(null)
+      clearSpeechError()
+      stopSpeaking()
+      
+      // Clear the selected conversation
+      setSelectedConversationId(undefined)
+      
+      // Clear any input text
+      setInput("")
+      
+      // Show success message
+      toast.success('All conversations cleared successfully!');
+    } catch (error) {
+      console.error('Error clearing all conversations:', error);
+      toast.error('Failed to clear conversations. Please try again.');
+    }
+  }, [user?.id, clearAllConversations, setMessages, clearSpeechError, stopSpeaking, setInput]);
 
   const handleVoiceInput = useCallback(() => {
     startListening((transcript: string) => {
@@ -914,7 +1225,7 @@ export default function ChatPage() {
     setApiKeys(updatedApiKeys)
 
     // Save API keys to localStorage
-    localStorage.setItem("radhika-api-keys", JSON.stringify(updatedApiKeys))
+    localStorage.setItem("oneai-api-keys", JSON.stringify(updatedApiKeys))
 
     // Switch to the selected provider
     setProvider(selectedProvider)
@@ -1075,7 +1386,8 @@ export default function ChatPage() {
           selectedConversationId={selectedConversationId}
           user={user}
           loading={loading}
-          onSignIn={handleGoogleLogin}
+          onGoogleSignIn={handleGoogleLogin}
+          onGithubSignIn={handleGithubLogin}
           onNewChat={handleNewChat}
         />
 
@@ -1181,7 +1493,7 @@ export default function ChatPage() {
                   {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
                 </Button>
 
-                <Badge
+                {/* <Badge
                   variant="secondary"
                   className={`hidden sm:inline-flex ${uiStyle === "pixel"
                     ? "bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-300 border-2 border-gray-400 dark:border-gray-600 pixel-border pixel-font"
@@ -1190,7 +1502,7 @@ export default function ChatPage() {
                 >
                   <MessageCircle className="w-3 h-3 mr-2" />
                   {messages.length}
-                </Badge>
+                </Badge> */}
                 {/* <Button
                   variant="ghost"
                   size="sm"
@@ -1217,7 +1529,7 @@ export default function ChatPage() {
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button> */}
-                <Button
+                {/* <Button
                   variant="ghost"
                   size="sm"
                   className={`text-gray-800 dark:text-gray-300 transition-colors p-2 ${uiStyle === "pixel"
@@ -1234,7 +1546,7 @@ export default function ChatPage() {
                   >
                     <Github className="w-4 h-4" />
                   </a>
-                </Button>
+                </Button> */}
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1322,7 +1634,13 @@ export default function ChatPage() {
                           <FileText className="w-4 h-4 mr-2" />
                           Disclaimer
                         </Button>
-                        <Button variant="ghost" size="sm" className="w-full justify-start text-sm font-normal">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full justify-start text-sm font-normal"
+                          onClick={handleClearAllConversations}
+                          disabled={!user?.id || conversations.length === 0}
+                        >
                           <Eraser className="w-4 h-4 mr-2" />
                           Clear Memory
                         </Button>
@@ -1331,7 +1649,7 @@ export default function ChatPage() {
                       <DropdownMenuSeparator />
                       
                       <div className="text-xs text-muted-foreground px-2">
-                        <div>Version: ai.1.0.2.24062025</div>
+                        <div>Version: ai.1.0.5.07072025</div>
                         <div>Code Name: Malibu</div>
                       </div>
 
@@ -1396,7 +1714,7 @@ export default function ChatPage() {
                 <>
                   <div className="text-center py-6 sm:py-10">
                     <div className="mb-8">
-                      <AIVisualization mode={mode} isActive={isLoading || isListening} />
+                      <AIVisualization mode={mode} isActive={isLoading || isListening || isFileUploading} />
                     </div>
                     <h3
                       className={`text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2 ${uiStyle === "pixel" ? "font-bold pixel-font" : ""
@@ -1481,22 +1799,6 @@ export default function ChatPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                                onClick={() => toast.success("Response liked")}
-                              >
-                                <ThumbsUp className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                                onClick={() => toast.success("Response disliked")}
-                              >
-                                <ThumbsDown className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-muted-foreground hover:text-foreground"
                                 onClick={() => handleCopyMessage(message.content)}
                               >
                                 <Copy className="h-4 w-4" />
@@ -1557,7 +1859,7 @@ export default function ChatPage() {
                   </div>
                 ))}
               </div>
-              {isLoading && (
+              {(isLoading || isFileUploading || isWebSearching) && (
                 <div className="flex space-x-2 sm:space-x-3">
                   <div
                     className={`flex-shrink-0 w-8 h-8 flex items-center justify-center shadow-lg ${currentMode.glow} ${uiStyle === "pixel"
@@ -1594,7 +1896,12 @@ export default function ChatPage() {
                         <span
                           className={`text-xs text-gray-700 dark:text-gray-400 ${uiStyle === "pixel" ? "pixel-font" : ""}`}
                         >
-                          {uiStyle === "pixel" ? "OneAI IS PROCESSING..." : "OneAI is thinking..."}
+                          {isFileUploading 
+                            ? (uiStyle === "pixel" ? "OneAI IS ANALYZING FILES..." : "OneAI is analyzing your files...")
+                            : isWebSearching
+                            ? (uiStyle === "pixel" ? "OneAI IS SEARCHING THE WEB..." : "OneAI is searching the web...")
+                            : (uiStyle === "pixel" ? "OneAI IS PROCESSING..." : "OneAI is thinking...")
+                          }
                         </span>
                       </div>
                     </div>
@@ -1613,13 +1920,49 @@ export default function ChatPage() {
               }`}
           >
             <div className="max-w-4xl mx-auto">
+              {/* File Preview Area */}
+              <div id="file-preview-area" className="hidden mb-3">
+                <div className={`p-3 rounded-lg border ${uiStyle === "pixel" 
+                  ? "bg-gray-200 dark:bg-gray-700 border-4 border-gray-400 dark:border-gray-600 pixel-border" 
+                  : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-sm font-medium text-gray-700 dark:text-gray-300 ${uiStyle === "pixel" ? "pixel-font" : ""}`}>
+                      Selected Files
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const previewArea = document.getElementById('file-preview-area');
+                        const filesList = document.getElementById('files-list');
+                        if (previewArea && filesList) {
+                          previewArea.classList.add('hidden');
+                          filesList.innerHTML = '';
+                        }
+                        // Reset file input and clear uploaded files
+                        const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+                        if (fileInput) fileInput.value = '';
+                        setUploadedFiles([]);
+                        setInput('');
+                      }}
+                      className={`text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 ${uiStyle === "pixel" ? "pixel-border border-2" : ""}`}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div id="files-list" className="space-y-1"></div>
+                </div>
+              </div>
+
               <form onSubmit={handleSubmit} className="relative">
                 <Textarea
                   value={input}
                   onChange={handleInputChange}
-                  placeholder={!user ? "Please sign in to start chatting" : (uiStyle === "pixel" ? `> ${currentMode.placeholder}` : currentMode.placeholder)}
+                  placeholder={!user ? "Please sign in to start chatting" : isWebSearchEnabled ? (uiStyle === "pixel" ? "> WEB SEARCH ENABLED - ASK ANYTHING..." : "🔍 Web search enabled - Ask anything...") : (uiStyle === "pixel" ? `> ${currentMode.placeholder}` : currentMode.placeholder)}
                   disabled={!user}
-                  className={`min-h-[50px] sm:min-h-[60px] max-h-32 resize-none text-gray-900 dark:text-gray-100 placeholder-gray-600 dark:placeholder-gray-500 focus:ring-0 pr-20 sm:pr-24 text-base sm:text-lg leading-relaxed ${!user ? "opacity-50 cursor-not-allowed" : ""} ${uiStyle === "pixel"
+                  className={`min-h-[50px] sm:min-h-[60px] max-h-32 resize-none text-gray-900 dark:text-gray-100 placeholder-gray-600 dark:placeholder-gray-500 focus:ring-0 pr-28 sm:pr-32 text-base sm:text-lg leading-relaxed ${!user ? "opacity-50 cursor-not-allowed" : ""} ${uiStyle === "pixel"
                     ? "bg-gray-300 dark:bg-gray-900 border-4 border-gray-400 dark:border-gray-600 focus:border-cyan-500 dark:focus:border-cyan-400 pixel-font pixel-border"
                     : "bg-white/95 dark:bg-gray-800/50 backdrop-blur-sm border-gray-300 dark:border-gray-700/50 focus:border-cyan-500/50"
                     }`}
@@ -1633,6 +1976,121 @@ export default function ChatPage() {
                   }}
                 />
                 <div className="absolute right-1.5 bottom-1.5 flex items-center space-x-1">
+                  {/* Web Search Button */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsWebSearchEnabled(!isWebSearchEnabled);
+                      if (!isWebSearchEnabled) {
+                        // When enabling web search, show indicator in input
+                        toast.success('Web search enabled! Your next message will search the web.');
+                      } else {
+                        // When disabling web search
+                        toast.info('Web search disabled.');
+                      }
+                    }}
+                    className={`p-2 transition-all duration-200 ${isWebSearchEnabled
+                      ? `text-blue-800 dark:text-blue-300 ${uiStyle === "pixel"
+                        ? "bg-blue-200 dark:bg-blue-900/50 border-2 border-blue-600 dark:border-blue-400 pixel-border"
+                        : "bg-blue-100 dark:bg-blue-950/50 rounded-xl shadow-blue-500/20 shadow-lg"
+                        }`
+                      : `text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 ${uiStyle === "pixel"
+                        ? "hover:bg-blue-200 dark:hover:bg-blue-900/30 border-2 border-blue-400 dark:border-blue-600 pixel-border"
+                        : "hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-xl"
+                        }`
+                      }`}
+                    disabled={(isLoading || isFileUploading || isWebSearching) || !user}
+                    title={isWebSearchEnabled ? "Web search enabled - Click to disable" : "Click to enable web search"}
+                  >
+                    <Globe className={`w-4 h-4 ${isWebSearchEnabled ? 'animate-pulse' : ''}`} />
+                  </Button>
+
+                  {/* File Upload Button */}
+                  <input
+                    type="file"
+                    id="file-upload"
+                    className="hidden"
+                    accept=".jpg,.jpeg,.png,.svg,.webp,.avif,.pdf,.docx,.doc,.txt,.html,.md,.tsx,.jsx,.js,.json,.yaml,.yml,.sql,.ini,.toml,.xml,.dockerfile,.gitignore,.css,.py,.ts,.pl,.sh,.rb,.vb,.ps1,.php"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length > 0) {
+                        // Store files in state
+                        setUploadedFiles(files);
+                        
+                        const fileNames = files.map(f => f.name).join(", ");
+                        const fileTypes = files.map(f => {
+                          const ext = f.name.split('.').pop()?.toLowerCase();
+                          const imageExts = ['jpg', 'jpeg', 'png', 'svg', 'webp', 'avif'];
+                          return imageExts.includes(ext || '') ? 'image' : 'document';
+                        });
+                        
+                        const hasImages = fileTypes.includes('image');
+                        const hasDocs = fileTypes.includes('document');
+                        
+                        let prompt = "";
+                        if (hasImages && hasDocs) {
+                          prompt = `Analyze these files: ${fileNames}`;
+                        } else if (hasImages) {
+                          prompt = `Analyze ${files.length > 1 ? 'these images' : 'this image'}: ${fileNames}`;
+                        } else {
+                          prompt = `Analyze ${files.length > 1 ? 'these documents' : 'this document'}: ${fileNames}`;
+                        }
+                        
+                        setInput(prompt);
+                        
+                        // Show file preview
+                        const previewArea = document.getElementById('file-preview-area');
+                        const filesList = document.getElementById('files-list');
+                        if (previewArea && filesList) {
+                          previewArea.classList.remove('hidden');
+                          filesList.innerHTML = '';
+                          
+                          files.forEach((file, index) => {
+                            const fileItem = document.createElement('div');
+                            fileItem.className = `flex items-center space-x-2 p-2 rounded ${uiStyle === "pixel" ? "bg-gray-300 dark:bg-gray-600 pixel-border border-2" : "bg-gray-100 dark:bg-gray-700"}`;
+                            
+                            const fileIcon = document.createElement('div');
+                            const ext = file.name.split('.').pop()?.toLowerCase();
+                            const imageExts = ['jpg', 'jpeg', 'png', 'svg', 'webp', 'avif'];
+                            fileIcon.innerHTML = imageExts.includes(ext || '') ? '🖼️' : '📄';
+                            
+                            const fileName = document.createElement('span');
+                            fileName.textContent = file.name;
+                            fileName.className = `text-sm text-gray-700 dark:text-gray-300 truncate flex-1 ${uiStyle === "pixel" ? "pixel-font" : ""}`;
+                            
+                            const fileSize = document.createElement('span');
+                            fileSize.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+                            fileSize.className = `text-xs text-gray-500 ${uiStyle === "pixel" ? "pixel-font" : ""}`;
+                            
+                            fileItem.appendChild(fileIcon);
+                            fileItem.appendChild(fileName);
+                            fileItem.appendChild(fileSize);
+                            filesList.appendChild(fileItem);
+                          });
+                        }
+                        
+                        console.log('Files selected:', files);
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                    className={`p-2 transition-all duration-200 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 ${uiStyle === "pixel"
+                      ? "hover:bg-green-200 dark:hover:bg-green-900/30 border-2 border-green-400 dark:border-green-600 pixel-border"
+                      : "hover:bg-green-50 dark:hover:bg-green-950/30 rounded-xl"
+                      }`}
+                    disabled={(isLoading || isFileUploading || isWebSearching) || !user}
+                    title="Upload images or documents"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </Button>
+
                   {isSpeaking && (
                     <Button
                       type="button"
@@ -1662,18 +2120,36 @@ export default function ChatPage() {
                         : "hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-xl"
                       }`
                       }`}
-                    disabled={isLoading}
+                    disabled={isLoading || isFileUploading || isWebSearching}
                   >
                     {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                   </Button>
                   <Button
                     type="submit"
+                    variant="ghost"
                     size="sm"
-                    disabled={isLoading || !input.trim()}
-                    className={`bg-gradient-to-r ${currentMode.gradient} hover:opacity-90 text-white p-2 shadow-lg ${currentMode.glow} disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-xl ${uiStyle === "pixel" ? `border-4 ${currentMode.borderPixel} pixel-border` : "rounded-xl"
-                      }`}
+                    disabled={(isLoading || isFileUploading || isWebSearching) || !input.trim()}
+                    className={`p-2 transition-all duration-200 shadow-lg hover:shadow-xl ${
+                      !input.trim() || isLoading || isFileUploading || isWebSearching
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
+                    } ${uiStyle === "pixel"
+                      ? `bg-gradient-to-r ${currentMode.gradient} hover:opacity-90 text-white border-4 ${currentMode.borderPixel} pixel-border ${currentMode.glow}`
+                      : `bg-gradient-to-r ${currentMode.gradient} hover:opacity-90 text-white rounded-xl ${currentMode.glow} hover:scale-105`
+                    }`}
+                    title={
+                      !user 
+                        ? "Please sign in to send messages"
+                        : !input.trim()
+                        ? "Type a message to send"
+                        : isWebSearchEnabled
+                        ? "Send message with web search"
+                        : "Send message"
+                    }
                   >
-                    <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <ArrowUp className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                      isLoading || isFileUploading || isWebSearching ? 'animate-pulse' : ''
+                    }`} />
                   </Button>
                 </div>
               </form>
@@ -1951,6 +2427,8 @@ export default function ChatPage() {
         open={securityDialogOpen} 
         onOpenChange={setSecurityDialogOpen}
         uiStyle={uiStyle}
+        user={user}
+        conversations={conversations}
       />
 
       {/* Disclaimer Dialog */}

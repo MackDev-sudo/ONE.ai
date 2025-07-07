@@ -161,33 +161,35 @@ export async function getUserConversations(userId: string) {
 
 // Helper functions for conversation display
 export function formatConversationTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-  
-  if (diffInMinutes < 1) {
-    return 'Just now';
-  } else if (diffInMinutes < 10) {
-    return `${diffInMinutes}m ago`;
-  } else if (diffInMinutes < 60) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  } else {
-    const isToday = date.toDateString() === now.toDateString();
-    const isYesterday = date.toDateString() === new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
+  try {
+    const date = new Date(dateString);
     
-    if (isToday) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (isYesterday) {
-      return `Yesterday ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+    
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 5) {
+      return 'Just now';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}m ago`;
+    } else if (diffInMinutes < 1440) { // Less than 24 hours
+      const hours = Math.floor(diffInMinutes / 60);
+      return `${hours}h ago`;
     } else {
-      // Show date and time for older conversations
-      return date.toLocaleDateString([], { 
+      // Show actual date for older conversations
+      return date.toLocaleDateString('en-US', { 
         month: 'short', 
         day: 'numeric',
-        hour: '2-digit', 
-        minute: '2-digit'
+        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
       });
     }
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Date error';
   }
 }
 

@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare, Trash2, PanelLeftClose, PanelRightOpen, Search, PlusCircle, Library, X } from "lucide-react";
+import { MessageSquare, Trash2, PanelLeftClose, PanelRightOpen, Search, PlusCircle, Library, X, Github } from "lucide-react";
+import { FaGoogle } from "react-icons/fa";
 import { useConversations } from '@/hooks/use-conversations';
 import { 
   groupConversationsByTime, 
@@ -22,7 +23,8 @@ interface LeftSidebarProps {
   selectedConversationId?: string;
   user: SupabaseUser | null;
   loading: boolean;
-  onSignIn: () => void;
+  onGoogleSignIn: () => void;
+  onGithubSignIn: () => void;
   onNewChat?: () => void;
 }
 
@@ -34,7 +36,8 @@ export function LeftSidebar({
   selectedConversationId,
   user,
   loading: authLoading,
-  onSignIn,
+  onGoogleSignIn,
+  onGithubSignIn,
   onNewChat
 }: LeftSidebarProps): React.ReactElement {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -113,14 +116,27 @@ export function LeftSidebar({
           <p className={`text-sm ${uiStyle === "pixel" ? "pixel-font" : ""}`}>
             Sign in to start chatting
           </p>
-          <Button 
-            variant="default" 
-            size="sm" 
-            className="mt-4"
-            onClick={onSignIn}
-          >
-            Sign in with Google
-          </Button>
+          <div className="mt-4 flex flex-col items-center space-y-2">
+            <Button 
+              variant="default" 
+              size="sm" 
+              className="w-full max-w-48 flex items-center justify-center gap-2"
+              onClick={onGoogleSignIn}
+            >
+              <FaGoogle className="w-3 h-3" />
+              Sign in with Google
+            </Button>
+            <div className="text-xs text-gray-400 dark:text-gray-500">or</div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full max-w-48 flex items-center justify-center gap-2"
+              onClick={onGithubSignIn}
+            >
+              <Github className="w-3 h-3" />
+              Sign in with GitHub
+            </Button>
+          </div>
         </div>
       );
     }
@@ -128,27 +144,52 @@ export function LeftSidebar({
     // Special handling for guest users
     if (user?.app_metadata?.provider === 'guest' || user?.email === 'guest@example.com') {
       return (
-        <div className="flex flex-col items-center justify-center h-32 text-center text-gray-500">
-          <Library className="h-8 w-8 mb-3 opacity-60" />
-          <p className={`text-sm font-medium text-gray-600 dark:text-gray-400 mb-1 ${uiStyle === "pixel" ? "pixel-font" : ""}`}>
-            {uiStyle === "pixel" ? "GUEST MODE ACTIVE" : "Guest Mode Active"}
-          </p>
-          <p className={`text-xs text-gray-500 dark:text-gray-500 px-4 ${uiStyle === "pixel" ? "pixel-font" : ""}`}>
-            {uiStyle === "pixel" 
-              ? "CHAT HISTORY NOT AVAILABLE IN GUEST MODE. SIGN IN TO SAVE CONVERSATIONS." 
-              : "Chat history is not available in guest mode. Sign in with Google or GitHub to save your conversations and access them later."
-            }
-          </p>
-          {!uiStyle || uiStyle !== "pixel" && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="mt-3 text-xs"
-              onClick={onSignIn}
-            >
-              Sign in to save history
-            </Button>
-          )}
+        <div className="flex flex-col items-center justify-center min-h-[300px] text-center px-0 mt-6">
+          <div className={`p-4 rounded-lg ${uiStyle === "pixel" 
+            ? "bg-purple-100 dark:bg-purple-900/30 border-2 border-purple-400 dark:border-purple-600" 
+            : "bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-700/50"
+          }`}>
+            <Library className={`h-12 w-12 mx-auto mb-4 ${uiStyle === "pixel" 
+              ? "text-purple-600 dark:text-purple-400" 
+              : "text-purple-500 dark:text-purple-400"
+            }`} />
+            <h3 className={`text-base font-semibold text-purple-700 dark:text-purple-300 mb-2 ${uiStyle === "pixel" ? "pixel-font" : ""}`}>
+              {uiStyle === "pixel" ? "GUEST MODE ACTIVE" : "Guest Mode Active"}
+            </h3>
+            <p className={`text-sm text-gray-600 dark:text-gray-400 mb-4 leading-relaxed ${uiStyle === "pixel" ? "pixel-font" : ""}`}>
+              {uiStyle === "pixel" 
+                ? "CHAT HISTORY NOT AVAILABLE IN GUEST MODE. SIGN IN TO SAVE CONVERSATIONS." 
+                : "Chat history is not available in guest mode. Sign in with Google or GitHub to save your conversations and access them later."
+              }
+            </p>
+            <div className="flex flex-col items-center space-y-3">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className={`w-full max-w-48 flex items-center justify-center gap-2 ${uiStyle === "pixel" 
+                  ? "border-2 border-purple-400 dark:border-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30" 
+                  : "border-purple-200 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                }`}
+                onClick={onGoogleSignIn}
+              >
+                <FaGoogle className="w-3 h-3" />
+                Sign in with Google
+              </Button>
+              <div className="text-xs text-gray-400 dark:text-gray-500">or</div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className={`w-full max-w-48 flex items-center justify-center gap-2 ${uiStyle === "pixel" 
+                  ? "border-2 border-purple-400 dark:border-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30" 
+                  : "border-purple-200 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                }`}
+                onClick={onGithubSignIn}
+              >
+                <Github className="w-3 h-3" />
+                Sign in with GitHub
+              </Button>
+            </div>
+          </div>
         </div>
       );
     }
@@ -203,7 +244,7 @@ export function LeftSidebar({
                 <div
                   key={conversation.id}
                   className={`
-                    group flex flex-col p-3 rounded-lg cursor-pointer transition-all duration-200
+                    group p-2 rounded-lg cursor-pointer transition-all duration-200
                     ${selectedConversationId === conversation.id
                       ? uiStyle === "pixel" 
                         ? 'bg-gray-700 border-l-4 border-cyan-400'
@@ -214,48 +255,55 @@ export function LeftSidebar({
                   `}
                   onClick={() => onConversationSelect?.(conversation.id)}
                 >
-                  {/* Main content row */}
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${
-                        uiStyle === "pixel" 
-                          ? "text-white pixel-font" 
-                          : "text-gray-900 dark:text-gray-100"
-                      }`}>
-                        {conversation.last_message || conversation.title || 'Untitled Chat'}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 ml-2"
-                      onClick={(e: React.MouseEvent) => {
-                        e.stopPropagation();
-                        deleteConversation(conversation.id);
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3 text-gray-400 hover:text-red-500" />
-                    </Button>
-                  </div>
+                  {/* Conversation title */}
+                  <p className={`text-sm font-medium truncate mb-1 pr-2 ${
+                    uiStyle === "pixel" 
+                      ? "text-white pixel-font" 
+                      : "text-gray-900 dark:text-gray-100"
+                  }`}>
+                    {conversation.last_message || conversation.title || 'Untitled Chat'}
+                  </p>
                   
-                  {/* Meta information row */}
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center space-x-2">
-                      {/* Mode indicator */}
-                      <span className={`inline-flex items-center space-x-1 ${modeInfo.color}`}>
-                        <span>{modeInfo.emoji}</span>
-                        <span className={`font-medium ${uiStyle === "pixel" ? "pixel-font" : ""}`}>
-                          {modeInfo.label}
-                        </span>
+                  {/* Bottom row with mode, date, and delete button - all tightly packed on left */}
+                  <div className="flex items-center gap-3 text-xs">
+                    {/* Mode indicator - compact width */}
+                    <span className={`inline-flex items-center gap-1 flex-shrink-0 max-w-[70px] ${modeInfo.color}`}>
+                      <span className="flex-shrink-0">{modeInfo.emoji}</span>
+                      <span className={`font-medium truncate ${uiStyle === "pixel" ? "pixel-font" : ""}`}>
+                        {modeInfo.label}
                       </span>
-                    </div>
+                    </span>
                     
-                    {/* Time indicator */}
-                    <span className={`text-gray-500 dark:text-gray-400 ${
+                    {/* Date - compact and positioned towards left */}
+                    <span className={`text-gray-500 dark:text-gray-400 text-[10px] flex-shrink-0 ${
                       uiStyle === "pixel" ? "pixel-font" : ""
                     }`}>
                       {timeDisplay}
                     </span>
+                    
+                    {/* Delete button - compact and positioned towards left */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`
+                        h-4 w-4 p-0 flex-shrink-0
+                        ${uiStyle === "pixel" 
+                          ? "hover:bg-red-500/20" 
+                          : "hover:bg-red-500/10 rounded"
+                        }
+                      `}
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        deleteConversation(conversation.id);
+                      }}
+                      aria-label="Delete conversation"
+                    >
+                      <Trash2 className={`h-2.5 w-2.5 transition-colors duration-200 ${
+                        uiStyle === "pixel" 
+                          ? "text-red-400 hover:text-red-300" 
+                          : "text-gray-500 hover:text-red-500"
+                      }`} />
+                    </Button>
                   </div>
                 </div>
               );
@@ -387,17 +435,19 @@ export function LeftSidebar({
 
         <Separator className={uiStyle === "pixel" ? "h-1" : ""} />
 
-        <div className="px-4 pt-2">
-          <h2 className={`text-lg font-semibold ${uiStyle === "pixel" ? "text-white pixel-font" : "bg-gradient-to-r from-purple-600 via-pink-500 to-fuchsia-500 dark:from-purple-400 dark:via-pink-300 dark:to-fuchsia-400 bg-clip-text text-transparent"}`}>
-            Chat History
-          </h2>
-        </div>
+        {!isCollapsed && (
+          <div className="px-4 pt-2">
+            <h2 className={`text-lg font-semibold ${uiStyle === "pixel" ? "text-white pixel-font" : "bg-gradient-to-r from-purple-600 via-pink-500 to-fuchsia-500 dark:from-purple-400 dark:via-pink-300 dark:to-fuchsia-400 bg-clip-text text-transparent"}`}>
+              Chat History
+            </h2>
+          </div>
+        )}
 
         {/* Chat History */}
         <ScrollArea className="flex-1 px-4">
           {isCollapsed ? (
-            <div className="flex justify-center text-gray-500">
-              <MessageSquare className="h-4 w-4 opacity-50" />
+            <div className="flex justify-center py-4">
+              <MessageSquare className={`h-5 w-5 ${uiStyle === "pixel" ? "text-white" : "text-gray-500 dark:text-gray-400"}`} />
             </div>
           ) : (
             renderContent()

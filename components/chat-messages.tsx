@@ -98,6 +98,71 @@ const MarkdownComponents: Components = {
   p: ({ children }) => (
     <p className="text-base text-muted-foreground leading-relaxed mb-4">{children}</p>
   ),
+  img: ({ src, alt, title }) => {
+    const [imageLoaded, setImageLoaded] = useState(false);
+    const [imageError, setImageError] = useState(false);
+    const imageSrc = typeof src === 'string' ? src : '';
+    
+    return (
+      <div className="my-4 group relative">
+        <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
+          {!imageLoaded && !imageError && (
+            <div className="flex items-center justify-center h-48 bg-muted animate-pulse">
+              <div className="text-muted-foreground text-sm">Loading image...</div>
+            </div>
+          )}
+          {imageError && (
+            <div className="flex items-center justify-center h-48 bg-muted">
+              <div className="text-muted-foreground text-sm">Failed to load image</div>
+            </div>
+          )}
+          {imageSrc && (
+            <img
+              src={imageSrc}
+              alt={alt || "Image"}
+              title={title}
+              className={`w-full h-auto max-w-full object-contain transition-opacity duration-300 ${
+                imageLoaded ? 'opacity-100' : 'opacity-0'
+              }`}
+              onLoad={() => {
+                setImageLoaded(true);
+                setImageError(false);
+              }}
+              onError={() => {
+                setImageError(true);
+                setImageLoaded(false);
+              }}
+              style={{ 
+                maxHeight: '400px',
+                display: imageLoaded ? 'block' : 'none'
+              }}
+            />
+          )}
+          {alt && imageLoaded && (
+            <div className="px-3 py-2 bg-muted/50 border-t">
+              <p className="text-sm text-muted-foreground">{alt}</p>
+            </div>
+          )}
+        </div>
+        {imageSrc && imageLoaded && (
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 flex gap-1">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-8 px-2 text-xs"
+              onClick={() => window.open(imageSrc, '_blank')}
+            >
+              Open
+            </Button>
+            <CopyButton 
+              content={imageSrc} 
+              className="!relative !right-0 !top-0 !transform-none h-8 w-8"
+            />
+          </div>
+        )}
+      </div>
+    );
+  },
   ul: ({ children }) => {
     const content = String(children);
     const isProsCons = content.includes('✅') || content.includes('❌');
@@ -687,7 +752,7 @@ export function ChatMessages({
                       style={{ animationDelay: "0.2s" }}
                     />
                   </div>
-                  <span className="text-xs text-gray-700 dark:text-gray-400">Radhika is thinking...</span>
+                  <span className="text-xs text-gray-700 dark:text-gray-400">ONE.ai is thinking...</span>
                 </div>
               </div>
             </div>

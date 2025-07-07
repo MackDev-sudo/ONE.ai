@@ -1,19 +1,234 @@
 "use client";
 
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Shield, Lock, Eye, Trash2, Download, Settings, AlertCircle } from "lucide-react";
+import { User as SupabaseUser } from "@supabase/supabase-js";
+import { Conversation } from "@/types/chat";
+import { toast } from "sonner";
+import { createClient } from "@/lib/supabase";
+import { ContactUs } from "./ContactUs";
 
 interface SecurityProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   uiStyle?: "modern" | "pixel";
+  user?: SupabaseUser | null;
+  conversations?: Conversation[];
 }
 
-export function Security({ open, onOpenChange, uiStyle = "modern" }: SecurityProps) {
+export function Security({ open, onOpenChange, uiStyle = "modern", user, conversations = [] }: SecurityProps) {
+  const [isExporting, setIsExporting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isContactUsOpen, setIsContactUsOpen] = useState(false);
+
+  const handleExportData = async () => {
+    if (!user) {
+      toast.error('Please sign in to export your data');
+      return;
+    }
+
+    if (conversations.length === 0) {
+      toast.info('No conversation data to export');
+      return;
+    }
+
+    setIsExporting(true);
+    
+    try {
+      toast.info('Exporting data... Please wait.');
+      
+      const supabase = createClient();
+      
+      // Prepare CSV headers for detailed export
+      const headers = ['Conversation ID', 'Conversation Title', 'Mode', 'Message ID', 'Role', 'Message Content', 'Message Date', 'Conversation Created', 'Conversation Updated'];
+      
+      const csvRows = [];
+      
+      // Fetch messages for each conversation
+      for (const conversation of conversations) {
+        try {
+          const { data: messages, error } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('conversation_id', conversation.id)
+            .order('created_at', { ascending: true });
+
+          if (error) {
+            console.error('Error fetching messages for conversation:', conversation.id, error);
+            // Add conversation without messages if there's an error
+            csvRows.push([
+              conversation.id || '',
+              (conversation.title || 'Untitled Chat').replace(/"/g, '""'),
+              conversation.mode || 'general',
+              '',
+              '',
+              'Error fetching messages',
+              '',
+              conversation.created_at ? new Date(conversation.created_at).toLocaleString() : '',
+              conversation.updated_at ? new Date(conversation.updated_at).toLocaleString() : ''
+            ]);
+            continue;
+          }
+
+          if (messages && messages.length > 0) {
+            // Add each message as a separate row
+            messages.forEach((message: any) => {
+              csvRows.push([
+                conversation.id || '',
+                (conversation.title || 'Untitled Chat').replace(/"/g, '""'),
+                conversation.mode || 'general',
+                message.id || '',
+                message.role || '',
+                (String(message.content || '')).replace(/"/g, '""'), // Escape quotes and clean content
+                message.created_at ? new Date(String(message.created_at)).toLocaleString() : '',
+                conversation.created_at ? new Date(conversation.created_at).toLocaleString() : '',
+                conversation.updated_at ? new Date(conversation.updated_at).toLocaleString() : ''
+              ]);
+            });
+          } else {
+            // Add conversation without messages if no messages found
+            csvRows.push([
+              conversation.id || '',
+              (conversation.title || 'Untitled Chat').replace(/"/g, '""'),
+              conversation.mode || 'general',
+              '',
+              '',
+              'No messages found',
+              '',
+              conversation.created_at ? new Date(conversation.created_at).toLocaleString() : '',
+              conversation.updated_at ? new Date(conversation.updated_at).toLocaleString() : ''
+            ]);
+          }
+        } catch (msgError) {
+          console.error('Error processing conversation:', conversation.id, msgError);
+          csvRows.push([
+            conversation.id || '',
+            (conversation.title || 'Untitled Chat').replace(/"/g, '""'),
+            conversation.mode || 'general',
+            '',
+            '',
+            'Error processing conversation',
+            '',
+            conversation.created_at ? new Date(conversation.created_at).toLocaleString() : '',
+            conversation.updated_at ? new Date(conversation.updated_at).toLocaleString() : ''
+          ]);
+        }
+      }
+
+      // Create footer section with disclaimer
+      const footerSection = [
+        ``,
+        `END OF DATA`,
+        ``,
+        `DISCLAIMER:`,
+        `This export contains your personal chat history from ONE.ai platform.`,
+        `Please handle this data responsibly and in accordance with privacy laws.`,
+        `ONE.ai and Mackdev Inc. are not responsible for the use or misuse of exported data.`,
+        `For support or questions, contact: support@mackdev.com`,
+        ``,
+        `Generated by ONE.ai v1.0.2 - Code Name: Malibu`,
+        `Technology by Mackdev Inc. - ${new Date().getFullYear()}`,
+        `Visit us: https://github.com/MackDev-sudo`
+      ];
+
+      // Create the file content with data table and footer
+      const csvContent = [
+        // Data table
+        headers.join(','),
+        ...csvRows.map(row => row.map(field => `"${field}"`).join(',')),
+        
+        // Footer section (single column)
+        ...footerSection.map(line => `"${line}"`)
+      ].join('\n');
+
+      // Create and download the file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `OneAI_FullChatHistory_${user.email || 'user'}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`Chat history exported successfully! ${csvRows.length} messages from ${conversations.length} conversations.`);
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      toast.error('Failed to export data. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDeleteAllData = async () => {
+    if (!user) {
+      toast.error('Please sign in to delete your data');
+      return;
+    }
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      'Are you sure you want to delete ALL your data? This action cannot be undone.\n\n' +
+      'This will permanently delete:\n' +
+      '• All your conversations\n' +
+      '• All your messages\n' +
+      '• Your chat history\n\n' +
+      'Click OK to confirm deletion or Cancel to abort.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeleting(true);
+    
+    try {
+      toast.info('Deleting all data... Please wait.');
+      
+      const supabase = createClient();
+      
+      // First delete all messages for the user's conversations
+      const { error: messagesError } = await supabase
+        .from('messages')
+        .delete()
+        .in('conversation_id', conversations.map(c => c.id));
+
+      if (messagesError) {
+        console.error('Error deleting messages:', messagesError);
+        toast.error('Failed to delete messages. Please try again.');
+        return;
+      }
+
+      // Then delete all conversations for the user
+      const { error: conversationsError } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (conversationsError) {
+        console.error('Error deleting conversations:', conversationsError);
+        toast.error('Failed to delete conversations. Please try again.');
+        return;
+      }
+
+      toast.success('All data deleted successfully! Your chat history has been permanently removed.');
+      
+      // Close the dialog after successful deletion
+      onOpenChange(false);
+      
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      toast.error('Failed to delete data. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -89,8 +304,14 @@ export function Security({ open, onOpenChange, uiStyle = "modern" }: SecurityPro
                   <p className="text-sm text-muted-foreground mb-3">
                     Download all your chat history and account data
                   </p>
-                  <Button variant="outline" size="sm" className="w-full">
-                    Export My Data
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={handleExportData}
+                    disabled={!user || conversations.length === 0 || isExporting}
+                  >
+                    {isExporting ? 'Exporting...' : 'Export My Data'}
                   </Button>
                 </div>
                 <div className="p-4 border rounded-lg">
@@ -101,8 +322,14 @@ export function Security({ open, onOpenChange, uiStyle = "modern" }: SecurityPro
                   <p className="text-sm text-muted-foreground mb-3">
                     Permanently remove all your data from our systems
                   </p>
-                  <Button variant="outline" size="sm" className="w-full text-red-600 hover:text-red-700">
-                    Delete All Data
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full text-red-600 hover:text-red-700"
+                    onClick={handleDeleteAllData}
+                    disabled={!user || conversations.length === 0 || isDeleting}
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete All Data'}
                   </Button>
                 </div>
               </div>
@@ -123,9 +350,9 @@ export function Security({ open, onOpenChange, uiStyle = "modern" }: SecurityPro
                   <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
                     <Lock className="h-6 w-6 text-green-600" />
                   </div>
-                  <h4 className="font-medium mb-2">End-to-End Encryption</h4>
+                  <h4 className="font-medium mb-2">Encryption Enabled</h4>
                   <p className="text-sm text-muted-foreground">
-                    All communications are encrypted in transit and at rest
+                    All communications are encrypted in transit. 
                   </p>
                 </div>
                 <div className="text-center p-4">
@@ -179,12 +406,23 @@ export function Security({ open, onOpenChange, uiStyle = "modern" }: SecurityPro
             <p className="text-sm text-muted-foreground">
               Have questions about our privacy practices?
             </p>
-            <Button variant="link" className="text-blue-600 hover:text-blue-700">
+            <Button 
+              variant="link" 
+              className="text-blue-600 hover:text-blue-700"
+              onClick={() => setIsContactUsOpen(true)}
+            >
               Contact our Privacy Team
             </Button>
           </div>
         </div>
       </DialogContent>
+      
+      {/* ContactUs Dialog */}
+      <ContactUs 
+        open={isContactUsOpen} 
+        onOpenChange={setIsContactUsOpen}
+        uiStyle={uiStyle}
+      />
     </Dialog>
   );
 }

@@ -117,7 +117,7 @@
 //               title="View on GitHub"
 //             >
 //               <a
-//                 href="https://github.com/RS-labhub/radhika"
+//                 href="https://github.com/MackDev-sudo/ONE.ai"
 //                 target="_blank"
 //                 rel="noopener noreferrer"
 //                 aria-label="View on GitHub"

@@ -47,7 +47,7 @@
 //           </div>
 //           <div>
 //             <h1 className="text-lg font-bold bg-gradient-to-r from-cyan-600 to-blue-600 dark:from-cyan-400 dark:to-blue-400 bg-clip-text text-transparent">
-//               RADHIKA
+//               ONE.ai
 //             </h1>
 //             <p className="text-xs text-gray-600 dark:text-gray-400">Futuristic AI Assistant</p>
 //           </div>

@@ -1,6 +1,6 @@
-# RADHIKA - AI Assistant
+# ONE.ai - AI Assistant
 
-**RADHIKA (Adaptive Reasoning & Intelligence Assistant)** is a next-generation AI chat application that provides specialized assistance across six distinct modes: General, Productivity, Wellness, Learning, Creative, and BFF.
+**ONE.ai (Adaptive Reasoning & Intelligence Assistant)** is a next-generation AI chat application that provides specialized assistance across six distinct modes: General, Productivity, Wellness, Learning, Creative, and BFF.
 
 ## Key Highlights
 

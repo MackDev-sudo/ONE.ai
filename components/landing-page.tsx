@@ -221,7 +221,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                   variant="outline" 
                   size="lg"
                   className="px-8 py-3 text-lg font-medium"
-                  onClick={() => window.open('https://github.com/RS-labhub/ONE.ai', '_blank')}
+                  onClick={() => window.open('https://github.com/MackDev-sudo/ONE.ai', '_blank')}
                 >
                   <Github className="mr-2 w-5 h-5" />
                   View on GitHub
@@ -469,7 +469,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               <Button 
                 variant="ghost" 
                 size="sm"
-                onClick={() => window.open('https://github.com/RS-labhub/ONE.ai', '_blank')}
+                onClick={() => window.open('https://github.com/MackDev-sudo/ONE.ai', '_blank')}
                 className="text-gray-400 hover:text-white"
               >
                 <Github className="w-5 h-5 mr-2" />
